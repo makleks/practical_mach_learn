@@ -1,0 +1,109 @@
+---
+title: "Practical_Machine_Learning"
+output: html_document
+---
+
+# Practical Machine Learning Coursera Assignment
+
+## Building a machine learning algorithm to predict activity quality from activity monitors on the Groupware HAR Weight Lifting Exercises Dataset
+
+### Executive Summary
+
+This report details the procedures carried out to build a machine learning algorithm to predict a classification outcome on a given dataset. The data comes from the Groupware HAR(Human Activites Recognition) weight-lifting dataset. The goal was to quantify "how well" certain activities were performed. Measurements were taken from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.The results were then recorded in the "classe" variable in the dataset.
+In this project we will train a "Random Forest" model on a subset of the variables in the dataset and show that this produces considerably accurate predictions.
+
+
+### Exploratory Analysis
+
+We begin by downloading the file and reading the data into an R variable "PML_Data".
+
+```{r}
+download.file('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', destfile = 'PML_Data.csv')
+PML_Data <- read.csv('PML_Data.csv')
+```
+
+We then explore some basic properties of the dataset. 
+Let's take a look at the dimensions of the dataset. 
+
+```{r}
+dim(PML_Data)
+```
+
+The dataset consists of 159 potential predictors.
+After some visual inspection it is observed that the data consists primarily of numeric measurements. We also observe that some of the columns are encoded as factors variables while the majority are encoded as numeric. We split the data into "factor" variable columns and "numeric" variable columns preserving the outcome "classe" column in each dataset.
+
+```{r}
+facindex <- sapply(PML_Data, is.factor) #create an index of columns containing factor variables
+PML_DataDisc <- PML_Data[,facindex] # columns of factors are to be discarded
+PML_DataKeep <- PML_Data[, !facindex] # these mostly numeric type variables will be used to develop our model
+d <- c(1,2,3,4,5,6,7) ; PML_DataKeep <- PML_DataKeep[,-d] # discard the first 7 columns 
+PML_DataKeep <- cbind(PML_DataKeep, classe=PML_Data$classe) # add back our column of outcomes
+dim(PML_DataDisc);dim(PML_DataKeep)
+
+```
+
+From the above, we see that the numeric predictors(PML_DataKeep) are 123 of the 159 predictors.From further inspection of the data we decided to rid ourselves of the first 7 variables i the dataser as we believe they do not provide any predictive value and this also simplifies our analysis. We propose that this subset of predictors is sufficient to build our Random Forest model.
+
+
+We begin by splitting our data into Training and Test sets, 70% to 30%.
+
+```{r}
+library(caret)
+inTrain <- createDataPartition(y=PML_DataKeep$classe, p =0.7, list=F)
+training <- PML_DataKeep[inTrain,]
+testing <- PML_DataKeep[-inTrain,]
+```
+
+We noticed that a large proportion of the data is comprised of 'na's. We propse that this is equivalent to measurement of '0' on this collection of data - because measurements are taken of different activities, situations where no vallue is available could be considered as a measure of 'zero'.  We are going to replace all 'na's with the number '0' and this should enable the algorithm deal with values better.
+
+```{r}
+training[is.na(training)] <- 0
+```
+
+### Model Train and Evaluation
+
+The code below trains a Random Forest model on our 'training' dataset.
+
+```{r}
+set.seed(14321)
+modelPML <- train(classe~ .,data=training, method='rf')
+modelPML
+
+```
+
+
+Now we make a prediction on our test set 'testing' and take a look at it's performance
+
+```{r}
+testing[is.na(testing)] <- 0 # replace nas with 0
+pred <- predict(modelPML, testing)
+confusionMatrix(pred, testing$classe)
+```
+
+### Results on Test Set of 20 Cases
+
+First we download and process the data.
+
+```{r}
+download.file('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv', destfile='pmltesting.csv')
+Test20cases <- read.csv('pmltesting.csv')
+Test20cases <- Test20cases[,!facindex]
+Test20cases <- Test20cases[,-d]
+Test20cases[is.na(Test20cases)] <- 0
+```
+
+Now we apply our model on the data and view the results.
+
+```{r}
+predict(modelPML, Test20cases)
+```
+
+### Conclusion
+
+Our final model choice "modelPML" performs with 98.2% accuracy on the training set. 
+When applied to the test set, we get an accuracy of 98.9%. The out of sample error is therefore 1.1%. This is a acceptable performance of the algorithm, providing sufficient good predictive accuracy.
+The results from 20 test cases were also validated as all correct after being uploaded to the automatic grader.
+
+
+
+
